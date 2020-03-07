@@ -3,9 +3,8 @@ import telegram
 import os
 import random
 
-import telebot 
-from telebot import types 
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import telebot
+from Question import Question
 
 global bot
 global TOKEN
@@ -29,22 +28,17 @@ commands = {  # command description used in the "help" command
     'start'       : 'Bienvenido al chatbot', 
     'help'        : 'Esta instrucción informa sobre los comandos de este bot',
     'quiz'        : 'Empezar el test',
-    'answers'     : 'Se obtiene tu respuesta y la respuesta correcta.',
-    'score'       : 'Se obtiene la puntuación',
     'stop'        : 'Se para el test y te da un resumen de tu puntuación.',
-    'wiki'        : 'Busca información en la wikipedia'
+    'wiki'        : 'Busca información en la wikipedia.'
 } 
 
 # variables globales
 knownUsers = []  # todo: save these in a file, 
 userStep = {}  # so they won't reset every time the bot restarts 
-pregunta_enunciado = ''
-correct_answer = ''
-answer_user = ''
 preguntas_file = []
-score = []
 correctAnswers = []
 wrongAnswers = []
+questions = []
 contador = 0
 cont = 0
 
@@ -75,10 +69,6 @@ def respond():
             command_help(m)
         elif text == '/quiz': 
             command_quiz(m)
-        elif text == '/answers': 
-            command_answers(m)
-        elif text == '/score': 
-            command_score(m)
         elif text == '/stop': 
             command_stop(m)
         else: 
@@ -111,145 +101,16 @@ def get_user_step(uid):
         print("Nuevo usuario detectado que todavía no ha utilizado el comando \"/start\" .") 
         return 0
 
-def set_enunciado(enunciado):
-    global pregunta_enunciado    
-    if enunciado != None:
-        pregunta_enunciado = enunciado
-
-def get_enunciado():
-    return pregunta_enunciado
-
-def set_user_answer(user_answer):
-    global answer_user    
-    if user_answer != None:
-        answer_user = user_answer
-
-def get_user_answer():
-    return answer_user
-
-def set_correct_answer(correct):
-    global correct_answer 
-    if correct != None:
-        correct_answer = correct
-
-def get_correct_answer():
-    return correct_answer
-
-def get_score():
-    return score
-
-def get_puntuacion():
-    global correctAnswers
-    global wrongAnswers
-    global score
-    global cont
-    cont += 1
-    print("enunciado "+get_enunciado())
-    print("resp usuario "+get_user_answer())
-    print("resp correcta "+get_correct_answer())
-    if get_user_answer() == get_correct_answer():
-        correctAnswers.append(get_enunciado())
-    else:
-        wrongAnswers.append(get_enunciado())
-    if cont == 1:
-        score.append(len(correctAnswers))
-        score.append(len(wrongAnswers))
-    elif cont > 1:
-        score.insert(0, len(correctAnswers))
-        score.insert(1, len(wrongAnswers))
-    print("resp correctas "+str(score[0]))
-    print("resp incorrectas "+str(score[1]))
-    return score
-
 def print_command(m):
     texto = 'El comando {} ha recibido el dato del chat: {}'.format(m.text, str(m.chat)) 
     save_logs(m, texto)
     print(texto)
 
-def cargar_preguntas(bloque): 
-    global preguntas_file 
-    if os.path.exists(QUEST_FILENAME): 
-        with open(QUEST_FILENAME, READ_FILE) as f: 
-            preguntas = f.read().strip().splitlines()[1:] 
-            if bloque: 
-                preguntas2 = [] 
-                for pregunta in preguntas: 
-                    if pregunta.split(PUNTO_COMA)[0].lower() == bloque.lower(): 
-                        preguntas2.append(pregunta) 
-                preguntas_file = preguntas2 
-                return preguntas_file 
-            else: 
-                print('El bloque vacío') 
-    else: 
-        print('El fichero '+QUEST_FILENAME+' no encontrado.') 
-        sys.exit() 
-
-def get_bloque_params(params): 
-    bloque = '' 
-    bloques = ['b1','b2','b3','b4']
-    if params: 
-        if params[0].lower() == 'b1': 
-            bloque = 'b1' 
-        elif params[0].lower() == 'b2': 
-            bloque = 'b2' 
-        elif params[0].lower() == 'b3': 
-            bloque = 'b3' 
-        elif params[0].lower() == 'b4': 
-            bloque = 'b4' 
-    else:
-        bloque = random.shuffle(bloques) 
-    return bloque
-
-def get_datos_pregunta(preguntas): 
-    datos_pregunta = [] 
-    filas = [] 
-    bloque_fila = '' 
-    autor       = '' 
-    enunciado   = '' 
-    opcion_a    = '' 
-    opcion_b    = '' 
-    opcion_c    = '' 
-    opcion_d    = '' 
-    resp_correcta = '' 
-    i=0 
-    for question in preguntas: 
-        filas.append(preguntas[i].strip(PUNTO_COMA)) 
-        i += 1 
-
-    for fila in filas: 
-        bloque_fila = fila.split(PUNTO_COMA)[0] 
-        autor       = fila.split(PUNTO_COMA)[1] 
-        enunciado   = fila.split(PUNTO_COMA)[2] 
-        opcion_a    = fila.split(PUNTO_COMA)[3] 
-        opcion_b    = fila.split(PUNTO_COMA)[4] 
-        opcion_c    = fila.split(PUNTO_COMA)[5] 
-        opcion_d    = fila.split(PUNTO_COMA)[6]       
-        resp_correcta = fila.split(PUNTO_COMA)[7] 
-
-    datos_pregunta.append(bloque_fila) 
-    datos_pregunta.append(autor) 
-    datos_pregunta.append(enunciado) 
-    datos_pregunta.append(opcion_a) 
-    datos_pregunta.append(opcion_b) 
-    datos_pregunta.append(opcion_c) 
-    datos_pregunta.append(opcion_d) 
-    datos_pregunta.append(resp_correcta) 
-    
-    return datos_pregunta
-
-def gen_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 4
-    markup.add(InlineKeyboardButton("a", callback_data="a"),
-               InlineKeyboardButton("b", callback_data="b"),
-               InlineKeyboardButton("c", callback_data="c"),
-               InlineKeyboardButton("d", callback_data="d"))
-    return markup
-
 def save_logs(m, log): 
     texto = str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text 
     if os.path.exists(LOG_FILENAME): 
-        file = open(LOG_FILENAME, APPEND_FILE) 
+        #file = open(LOG_FILENAME, APPEND_FILE) 
+        file = open(LOG_FILENAME, WRITE_FILE)
         file.write(texto + '\n') 
         file.write(str(log) + '\n\n') 
         file.close() 
@@ -268,7 +129,7 @@ def command_start(m):
         knownUsers.append(cid)  # save user id, so you could brodcast messages to all users of this bot later 
         userStep[cid] = 0  # save user id and his current "command level", so he can use the "/getImage" command 
         bot.send_message(cid, "Bienvenido.") 
-        bot.send_message(cid, "Ahora te conoczco.") 
+        bot.send_message(cid, "Ahora te conozco.") 
         command_help(m)  # show the new user the help page 
     else: 
         bot.send_message(cid, "Ya te conozco") 
@@ -285,6 +146,7 @@ def command_help(m):
 
 def command_quiz(m): 
     print_command(m)
+    global questions
     markup = ''
     chatId  = m.chat.id 
     msg     = m.text
@@ -334,51 +196,58 @@ def command_quiz(m):
             resp_correcta = fila.split(PUNTO_COMA)[7]
 
         texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloque_fila.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
-        set_enunciado(enunciado)
-        set_correct_answer(resp_correcta)
-        #keyboard=[InlineKeyboardButton("a", callback_data='a'),InlineKeyboardButton("b", callback_data='b'),InlineKeyboardButton("c", callback_data='c'),InlineKeyboardButton("d", callback_data='d')]
-        #reply_markup = InlineKeyboardMarkup(keyboard)
+        questions = [Question(enunciado, resp_correcta)]
         bot.send_message(chatId, texto, parse_mode='Markdown')
         #bot.send_message(chatId, texto, parse_mode= 'Markdown', reply_markup=reply_markup)
         #bot.edit_message_text(chat_id=chatId, message_id=msg, text=texto, reply_markup=reply_markup)
-        bot.send_message(chatId, "Para saber la respuesta correcta puedes escribir el comando /answers.") 
-        bot.send_message(chatId, "Para saber tu puntuación puedes escribir el comando /score.") 
         bot.send_message(chatId, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.")
 
-def command_answers(m):
+def command_score(m, user_answer):
     print_command(m)
-    resp = get_user_answer()
-    set_user_answer(None)
-    if resp != None and resp != '':
-        bot.send_message(m.chat.id, "Tu respuesta ha sido la *"+resp+"*.\n*La respuesta correcta es: "+get_correct_answer()+"*", parse_mode= 'Markdown')
-    else:
-        bot.send_message(m.chat.id, "No has respondido a la pregunta.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
+    global correctAnswers
+    global wrongAnswers
+    global contador
+    global questions
 
-def command_score(m): 
-    print_command(m) 
-    global answer_user
-    answer_user = ''
-    if score:
-        bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
-        bot.send_message(m.chat.id, "Para parar el test puedes escribir el comando /stop.")
-    else:
-        bot.send_message(m.chat.id, "No hay puntuación, ya que no has respondido al test.\nPara empezar hacer el test puedes escribir el comando /quiz y después hacer clic en alguna de las opciones correspondientes.")
+    enunciado  = questions[0].enunciado
+    resp_correcta  = questions[0].resp_correcta
 
+    print("resp usuario "+user_answer)
+    print("enunciado "+enunciado)
+    print("resp correcta "+resp_correcta)
+
+    if enunciado and user_answer and resp_correcta:
+        contador += 1
+        if user_answer == resp_correcta:
+            correctAnswers.append(enunciado)
+        else:
+            wrongAnswers.append(enunciado)
+    else:
+        print("Hubo un problema con obtener los datos del enunciado, la respuesta del usuario y la respuesta correcta.")
+
+    print("resp correctas "+str(len(correctAnswers)))
+    print("resp incorrectas "+str(len(wrongAnswers)))
+
+    if enunciado and user_answer and resp_correcta:
+        bot.send_message(m.chat.id, "El enunciado ha sido: "+enunciado+"\n")
+        bot.send_message(m.chat.id, "Tu respuesta ha sido la *"+user_answer+"*.\n*La respuesta correcta es: "+resp_correcta+"*", parse_mode= 'Markdown')
+    else:
+        bot.send_message(m.chat.id,"Hubo problemas al obtener los datos. Puede escribir el comando /stop y volver a empezar con el comando /quiz.")
+
+    bot.send_message(m.chat.id, "Respuestas *correctas*: "+str(len(correctAnswers))+".\nRespuestas *incorrectas*: "+str(len(wrongAnswers))+".", parse_mode= 'Markdown')
+    bot.send_message(m.chat.id, "Para parar el test puedes escribir el comando /stop.")
+    command_quiz(m)
 
 def command_stop(m):
     print_command(m)
     global correctAnswers
     global wrongAnswers
-    global score
     global contador
-    score = get_score()
-    if score:
-        bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+str(score[0])+".\nRespuestas *incorrectas*: "+str(score[1])+".", parse_mode= 'Markdown')
+    if contador:
+        bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+str(len(correctAnswers))+".\nRespuestas *incorrectas*: "+str(len(wrongAnswers))+".", parse_mode= 'Markdown')
         contador = 0
         correctAnswers = []
         wrongAnswers = []
-        score = []
-        set_user_answer(None)
         bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
         #bot.send_message(m.chat.id, "Para realizar el test de algún puedes escribir el comando /b1 o /b2 o /b3 o /b4.")
     else:
@@ -400,30 +269,20 @@ def command_wiki(m):
 
 def command_default(m):
     print_command(m) 
-    global contador
-    if m.text != None:
-        if m.text == "a":
-            contador += 1
-            set_user_answer(m.text)
-            print(get_user_answer())
-            get_puntuacion()
-        elif m.text == "b":
-            contador += 1
-            set_user_answer(m.text)
-            print(get_user_answer())
-            get_puntuacion()
-        elif m.text == "c":
-            contador += 1
-            set_user_answer(m.text)
-            print(get_user_answer())
-            get_puntuacion()
-        elif m.text == "d":
-            contador += 1
-            set_user_answer(m.text)
-            print(get_user_answer())
-            get_puntuacion()
-    else:
-        bot.send_message(m.chat.id, "No te entiendo \"" + m.text + "\"\nPuedes escribir el comando /help para saber qué comando utilizar") 
+    msg     = m.text
+    substr  = msg[0:5]
+    print(substr)
+    if m.text != None and substr != '/wiki':
+        if m.text.lower() == "a":
+            command_score(m, m.text.lower())
+        elif m.text.lower() == "b":
+            command_score(m, m.text.lower())
+        elif m.text.lower() == "c":
+            command_score(m, m.text.lower())
+        elif m.text.lower() == "d":
+            command_score(m, m.text.lower())
+        else:
+            bot.send_message(m.chat.id, "No te entiendo \"" + m.text + "\"\nPuedes escribir el comando /help para saber qué comando utilizar") 
 
 if __name__ == '__main__':
     app.run(threaded=True)
