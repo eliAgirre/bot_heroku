@@ -59,7 +59,7 @@ commands = {  # command description used in the "help" command
     'quiz'        : 'Empezar el test',
     'score'       : 'Se obtiene la puntuación',
     'stop'        : 'Se para el test y te da un resumen de tu puntuación.'
-    #,'wiki'        : 'Busca información en la wikipedia.'
+    ,'wiki'        : 'Busca información en la wikipedia.'
 }
 
 # objetos
@@ -69,6 +69,9 @@ respuestas = Respuestas()
 knownUsers = []  # todo: save these in a file, 
 userStep = {}  # so they won't reset every time the bot restarts
 contador = 0
+answer = ''
+enun = ''
+r_ok = ''
 
 # rutas
 @app.route('/{}'.format(TOKEN), methods=['POST'])
@@ -95,12 +98,12 @@ def respond():
         text = m.text.encode('utf-8').decode() 
         substr  = text[0:5]
         print("texto: ", text)
-        #print("substr :", substr) 
-        '''
+        print("substr :", substr) 
+        
         if substr:
             if substr == '/wiki': 
                 command_wiki(m)
-        '''
+        
         if text: 
             if text == '/start': 
                 command_start(m) 
@@ -164,8 +167,10 @@ def save_logs(m, log):
 
 def callback_query(call, user_answer):
     global user
+    global answer
     cid = call.message.chat.id
     if user_answer:
+        answer = user_answer
         user = User(user_answer) 
         texto = "Tu respuesta ha sido: *"+user_answer+"*.\nPara saber tu puntuación puedes escribir el comando /score."
         if user_answer == OPCION_A:
@@ -207,6 +212,8 @@ def command_quiz(m):
     print('command_quiz') 
     print_command(m)
     global pregunta
+    global enun
+    global r_ok
     msg     = m.text
     reply = '' 
     params = msg.split(' ')[1:] 
@@ -254,6 +261,8 @@ def command_quiz(m):
             resp_correcta = fila.split(PUNTO_COMA)[7]
 
     texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloque_fila.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
+    enun = enunciado
+    r_ok = resp_correcta
     pregunta = Pregunta(enunciado, resp_correcta)
     bot.send_message(m.chat.id, texto, parse_mode='Markdown', reply_markup=OPCIONES)
     #bot.send_message(m.chat.id, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.")
@@ -265,14 +274,29 @@ def command_score(m):
     global respuestas
     global user
     global contador
+    global enun
+    global r_ok
     enunciado = ''
     resp_correct = ''
-    user_answer = user.get_resp_user()
-    print("resp usuario: "+user_answer)  
 
-    if pregunta:
+    try:
+        user_answer = user.get_resp_user()
+        print("resp usuario: "+user_answer) 
+    except NameError:
+        user = User(answer)
+        print("resp usuario: "+user.get_resp_user())
+        user_answer = user.get_resp_user()
+    
+    try:
+        if pregunta:
+            enunciado = pregunta.get_enunciado()
+            resp_correct = pregunta.get_resp_correcta()
+    except NameError:
+        pregunta = Pregunta(enun, r_ok)
         enunciado = pregunta.get_enunciado()
         resp_correct = pregunta.get_resp_correcta()
+
+    if pregunta:
         print("enunciado: "+enunciado)
         print("resp correcta: "+resp_correct)
         if enunciado and resp_correct and user_answer:
@@ -331,12 +355,12 @@ def command_default(m):
     print('command_default') 
     print_command(m) 
     msg     = m.text
-    #substr  = msg[0:5]
-    #print(substr)
-    #if m.text != None and substr != '/wiki':
-        #commando_wiki(m)
-    #else:
-    bot.send_message(m.chat.id, "No te entiendo \"" + msg + "\"\nPuedes escribir el comando /help para saber qué comando utilizar") 
+    substr  = msg[0:5]
+    print(substr)
+    if m.text != None and substr == '/wiki':
+        command_wiki(m)
+    else:
+        bot.send_message(m.chat.id, "No te entiendo \"" + msg + "\"\nPuedes escribir el comando /help para saber qué comando utilizar") 
 
 if __name__ == '__main__':
     app.run(threaded=True)
