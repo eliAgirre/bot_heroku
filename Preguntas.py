@@ -3,5 +3,8 @@ class Pregunta:
 		self.enunciado = enunciado
 		self.resp_correcta = resp_correcta
 
-	def print_pregunta(self):
-		print(self.enunciado, self.resp_correcta)
+	def get_enunciado(self):
+		return self.enunciado
+
+	def get_resp_correcta(self):
+		return self.resp_correcta
