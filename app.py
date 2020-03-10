@@ -5,6 +5,8 @@ import random
 
 import telebot
 from Pregunta import Pregunta
+from Respuestas import Respuestas
+from User import User
 from telebot import types 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -58,16 +60,15 @@ commands = {  # command description used in the "help" command
     'score'       : 'Se obtiene la puntuación',
     'stop'        : 'Se para el test y te da un resumen de tu puntuación.'
     #,'wiki'        : 'Busca información en la wikipedia.'
-} 
+}
+
+# objetos
+respuestas = Respuestas()
 
 # variables
 knownUsers = []  # todo: save these in a file, 
-userStep = {}  # so they won't reset every time the bot restarts 
-correctAnswers = []
-wrongAnswers = []
+userStep = {}  # so they won't reset every time the bot restarts
 contador = 0
-pregunta = Pregunta('','')
-res_user = ''
 
 # rutas
 @app.route('/{}'.format(TOKEN), methods=['POST'])
@@ -162,10 +163,10 @@ def save_logs(m, log):
         file.close()
 
 def callback_query(call, user_answer):
-    global resp_user
+    global user
     cid = call.message.chat.id
     if user_answer:
-        resp_user = user_answer
+        user = User(user_answer) 
         texto = "Tu respuesta ha sido: *"+user_answer+"*.\nPara saber tu puntuación puedes escribir el comando /score."
         if user_answer == OPCION_A:
             bot.send_message(cid, texto, parse_mode="Markdown")
@@ -200,7 +201,6 @@ def command_help(m):
     for key in commands:  # generate help text out of the commands dictionary defined at the top 
         help_text += "/" + key + ": " 
         help_text += commands[key] + "\n" 
-    #return help_text 
     bot.send_message(cid, help_text)  # send the generated help page
 
 def command_quiz(m): 
@@ -251,64 +251,62 @@ def command_quiz(m):
             opcion_b    = fila.split(PUNTO_COMA)[4]
             opcion_c    = fila.split(PUNTO_COMA)[5]
             opcion_d    = fila.split(PUNTO_COMA)[6]
-            resp_correcta = fila.split(PUNTO_COMA)[7] 
+            resp_correcta = fila.split(PUNTO_COMA)[7]
 
-        texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloque_fila.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
-        pregunta.enunciado = enunciado
-        pregunta.resp_correcta = resp_correcta
-        pregunta.print_pregunta()
-        bot.send_message(m.chat.id, texto, parse_mode='Markdown', reply_markup=OPCIONES)
-        #bot.send_message(m.chat.id, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.")
+    texto = "* %s)* %s \n %s \n %s \n %s \n %s \n\n De *%s*" % (bloque_fila.upper(), enunciado, opcion_a, opcion_b, opcion_c, opcion_d, autor)
+    pregunta = Pregunta(enunciado, resp_correcta)
+    bot.send_message(m.chat.id, texto, parse_mode='Markdown', reply_markup=OPCIONES)
+    #bot.send_message(m.chat.id, "Para que el bot te haga otra pregunta puedes escribir el comando /quiz.")
 
 def command_score(m):
     print('command_score') 
     print_command(m)
-    global correctAnswers
-    global wrongAnswers
+    global pregunta
+    global respuestas
+    global user
     global contador
-    global resp_user
-    chatId  = m.chat.id 
-
-    print("resp usuario "+resp_user)
-
-    if pregunta:
-        pregunta.print_pregunta()
+    enunciado = ''
+    resp_correct = ''
+    user_answer = user.get_resp_user()
+    print("resp usuario: "+user_answer)  
 
     if pregunta:
-        if pregunta.enunciado and resp_user and pregunta.resp_correcta:
+        enunciado = pregunta.get_enunciado()
+        resp_correct = pregunta.get_resp_correcta()
+        print("enunciado: "+enunciado)
+        print("resp correcta: "+resp_correct)
+        if enunciado and resp_correct and user_answer:
             contador += 1
-            if resp_user == pregunta.resp_correcta:
-                correctAnswers.append(pregunta.enunciado)
-            else:
-                wrongAnswers.append(pregunta.enunciado)
+            respuestas.add_resp(enunciado, resp_correct, user_answer)
         else:
             print("Hubo un problema con obtener los datos del enunciado, la respuesta del usuario y la respuesta correcta.")
     else:
         print("Hubo un problema con obtener el objeto pregunta")
 
-    print("resp correctas "+str(len(correctAnswers)))
-    print("resp incorrectas "+str(len(wrongAnswers)))
+    if respuestas:
+        print("resp correctas "+respuestas.get_num_correct_resp())
+        print("resp incorrectas "+respuestas.get_num_wrong_resp())
 
-    if pregunta.enunciado and resp_user and pregunta.resp_correcta:
-        bot.send_message(chatId, "El enunciado ha sido: "+pregunta.enunciado+"\nTu respuesta ha sido la *"+resp_user+"*.\n*La respuesta correcta es: "+pregunta.resp_correcta+"*", parse_mode='Markdown')
+    if enunciado and resp_correct and user_answer:
+        bot.send_message(m.chat.id, "El enunciado ha sido: "+enunciado+"\nTu respuesta ha sido la *"+user_answer+"*.\n*La respuesta correcta es: "+resp_correct+"*", parse_mode='Markdown')
     else:
-        bot.send_message(chatId,"Hubo problemas al obtener los datos. Puede escribir el comando /stop y volver a empezar con el comando /quiz.")
+        bot.send_message(m.chat.id,"Hubo problemas al obtener los datos. Puede escribir el comando /stop y volver a empezar con el comando /quiz.")
 
-    bot.send_message(chatId, "Respuestas *correctas*: "+str(len(correctAnswers))+".\nRespuestas *incorrectas*: "+str(len(wrongAnswers))+".\nPara parar el test puedes escribir el comando /stop.", parse_mode= 'Markdown')
-    resp_user = ''
+    if respuestas:
+        bot.send_message(m.chat.id, "Respuestas *correctas*: "+respuestas.get_num_correct_resp()+".\nRespuestas *incorrectas*: "+respuestas.get_num_wrong_resp()+".\nPara parar el test puedes escribir el comando /stop.", parse_mode= 'Markdown')
+    del pregunta
+    del user
     command_quiz(m)
 
 def command_stop(m):
     print('command_stop') 
     print_command(m)
     global contador
-    global correctAnswers
-    global wrongAnswers
+    global respuestas
     if contador:
-        bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+str(len(correctAnswers))+".\nRespuestas *incorrectas*: "+str(len(wrongAnswers))+".", parse_mode= 'Markdown')
+        bot.send_message(m.chat.id, "De las *"+str(contador)+"* preguntas.\nRespuestas *correctas* : "+respuestas.get_num_correct_resp()+".\nRespuestas *incorrectas*: "+respuestas.get_num_wrong_resp()+".", parse_mode= 'Markdown')
         contador = 0
-        correctAnswers = []
-        wrongAnswers = []
+        respuestas.clean_resp()
         bot.send_message(m.chat.id, "Para empezar hacer el test puedes escribir el comando /quiz.")
         #bot.send_message(m.chat.id, "Para realizar el test de algún puedes escribir el comando /b1 o /b2 o /b3 o /b4.")
     else:
