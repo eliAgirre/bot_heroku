@@ -1,9 +1,11 @@
+# imports
 from flask import Flask, request
 import telegram
-
 import telebot
 from telebot import types 
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# utilidades
 from util.methods import print_command
 from util.constantes import TOKEN, URL, KEYBOARD
 from util.arrays import datos, correct_answers, wrong_answers
@@ -17,6 +19,7 @@ global TOKEN
 bot = telegram.Bot(token=TOKEN)
 app = Flask(__name__)
 
+# rutas
 @app.route('/{}'.format(TOKEN), methods=['POST'])
 def respond():
     # retrieve the message in JSON and then transform it to Telegram object
@@ -66,5 +69,6 @@ def set_webhook():
 def index():
     return '.'
 
+# main
 if __name__ == '__main__':
     app.run(threaded=True)
